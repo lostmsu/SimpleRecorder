@@ -20,6 +20,9 @@ using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Media;
 using Windows.Foundation;
 using Windows.UI.ViewManagement;
+using System.Globalization;
+
+using static System.FormattableString;
 
 namespace SimpleRecorder
 {
@@ -48,19 +51,31 @@ namespace SimpleRecorder
 
             var settings = GetCachedSettings();
 
-            var names = new List<string>();
-            names.Add(nameof(VideoEncodingQuality.HD1080p));
-            names.Add(nameof(VideoEncodingQuality.HD720p));
-            names.Add(nameof(VideoEncodingQuality.Uhd2160p));
-            names.Add(nameof(VideoEncodingQuality.Uhd4320p));
-            QualityComboBox.ItemsSource = names;
-            QualityComboBox.SelectedIndex = names.IndexOf(settings.Quality.ToString());
+            var bitrates = new List<string> {
+                "1 Mbps",
+                "2 Mbps",
+                "4 Mbps",
+                "8 Mbps",
+                "16 Mbps",
+                "32 Mbps",
+            };
+            QualityComboBox.ItemsSource = bitrates;
+            Bitrate = settings.Bitrate;
 
-            var frameRates = new List<string> { "30fps", "60fps" };
+            var frameRates = new List<string> { "20fps", "30fps", "60fps" };
             FrameRateComboBox.ItemsSource = frameRates;
             FrameRateComboBox.SelectedIndex = frameRates.IndexOf($"{settings.FrameRate}fps");
 
             UseCaptureItemSizeCheckBox.IsChecked = settings.UseSourceSize;
+        }
+
+        uint Bitrate {
+            get => uint.Parse((QualityComboBox.SelectedItem as string).Replace(" Mbps", ""), CultureInfo.InvariantCulture)
+                * 1000000;
+            set {
+                var mbps = value / 1000000;
+                QualityComboBox.SelectedIndex = QualityComboBox.Items.IndexOf(Invariant($"{mbps} Mbps"));
+            }
         }
 
         private async void ToggleButton_Checked(object sender, RoutedEventArgs e)
@@ -68,14 +83,12 @@ namespace SimpleRecorder
             var button = (ToggleButton)sender;
 
             // Get our encoder properties
-            var frameRate = uint.Parse(((string)FrameRateComboBox.SelectedItem).Replace("fps", ""));
-            var quality = (VideoEncodingQuality)Enum.Parse(typeof(VideoEncodingQuality), (string)QualityComboBox.SelectedItem, false);
+            var frameRate = uint.Parse(((string)FrameRateComboBox.SelectedItem).Replace("fps", ""), CultureInfo.InvariantCulture);
+            var bitrate = this.Bitrate;
             var useSourceSize = UseCaptureItemSizeCheckBox.IsChecked.Value;
 
-            var temp = MediaEncodingProfile.CreateMp4(quality);
-            var bitrate = temp.Video.Bitrate;
-            var width = temp.Video.Width;
-            var height = temp.Video.Height;
+            uint width = 1920;
+            uint height = 1080;
 
             // Get our capture item
             var picker = new GraphicsCapturePicker();
@@ -212,11 +225,11 @@ namespace SimpleRecorder
 
         private AppSettings GetCurrentSettings()
         {
-            var quality = ParseEnumValue<VideoEncodingQuality>((string)QualityComboBox.SelectedItem);
+            var bitrate = this.Bitrate;
             var frameRate = uint.Parse(((string)FrameRateComboBox.SelectedItem).Replace("fps", ""));
             var useSourceSize = UseCaptureItemSizeCheckBox.IsChecked.Value;
 
-            return new AppSettings { Quality = quality, FrameRate = frameRate, UseSourceSize = useSourceSize };
+            return new AppSettings { Bitrate = bitrate, FrameRate = frameRate, UseSourceSize = useSourceSize };
         }
 
         private AppSettings GetCachedSettings()
@@ -224,13 +237,13 @@ namespace SimpleRecorder
             var localSettings = ApplicationData.Current.LocalSettings;
             var result =  new AppSettings
             {
-                Quality = VideoEncodingQuality.HD1080p,
-                FrameRate = 60,
-                UseSourceSize = true
+                Bitrate = 16 * 1024 * 1024,
+                FrameRate = 20,
+                UseSourceSize = true,
             };
-            if (localSettings.Values.TryGetValue(nameof(AppSettings.Quality), out var quality))
+            if (localSettings.Values.TryGetValue(nameof(AppSettings.Bitrate), out var bitrate))
             {
-                result.Quality = ParseEnumValue<VideoEncodingQuality>((string)quality);
+                result.Bitrate = (uint)bitrate;
             }
             if (localSettings.Values.TryGetValue(nameof(AppSettings.FrameRate), out var frameRate))
             {
@@ -252,7 +265,7 @@ namespace SimpleRecorder
         private static void CacheSettings(AppSettings settings)
         {
             var localSettings = ApplicationData.Current.LocalSettings;
-            localSettings.Values[nameof(AppSettings.Quality)] = settings.Quality.ToString();
+            localSettings.Values[nameof(AppSettings.Bitrate)] = settings.Bitrate.ToString();
             localSettings.Values[nameof(AppSettings.FrameRate)] = settings.FrameRate;
             localSettings.Values[nameof(AppSettings.UseSourceSize)] = settings.UseSourceSize;
         }
@@ -276,7 +289,7 @@ namespace SimpleRecorder
 
         struct AppSettings
         {
-            public VideoEncodingQuality Quality;
+            public uint Bitrate;
             public uint FrameRate;
             public bool UseSourceSize;
         }

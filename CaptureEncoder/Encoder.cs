@@ -85,9 +85,7 @@ namespace CaptureEncoder
 
                 using (_frameGenerator)
                 {
-                    var encodingProfile = new MediaEncodingProfile();
-                    encodingProfile.Container.Subtype = MediaEncodingSubtypes.Mpeg4;
-                    encodingProfile.Video.Subtype = MediaEncodingSubtypes.H264;
+                    var encodingProfile = MediaEncodingProfile.CreateHevc(VideoEncodingQuality.Uhd2160p);
                     encodingProfile.Video.Width = width;
                     encodingProfile.Video.Height = height;
                     encodingProfile.Video.Bitrate = bitrateInBps;
