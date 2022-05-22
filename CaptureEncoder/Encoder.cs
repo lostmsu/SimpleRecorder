@@ -20,6 +20,8 @@ using Windows.Media.Transcoding;
 using Windows.Storage;
 using Windows.Storage.Streams;
 
+using WinRT;
+
 namespace CaptureEncoder
 {
     public sealed class Encoder : IDisposable
@@ -67,12 +69,12 @@ namespace CaptureEncoder
         }
      
 
-        public IAsyncAction EncodeAsync(IRandomAccessStream stream, uint width, uint height, uint bitrateInBps, uint frameRate)
+        public IAsyncAction EncodeAsync(IRandomAccessStream destination, uint width, uint height, uint bitrateInBps, uint frameRate)
         {
-            return EncodeInternalAsync(stream, width, height, bitrateInBps, frameRate).AsAsyncAction();
+            return EncodeInternalAsync(destination, width, height, bitrateInBps, frameRate).AsAsyncAction();
         }
 
-        private async Task EncodeInternalAsync(IRandomAccessStream stream, uint width, uint height, uint bitrateInBps, uint frameRate)
+        private async Task EncodeInternalAsync(IRandomAccessStream destination, uint width, uint height, uint bitrateInBps, uint frameRate)
         {
             if (!_isRecording)
             {
@@ -108,7 +110,7 @@ namespace CaptureEncoder
                     _mediaStreamSource.AddStreamDescriptor(_audioDescriptor);
 
 
-                    var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, stream, encodingProfile);
+                    var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, destination, encodingProfile);
                     await transcode.TranscodeAsync();
                 }
             }
@@ -206,7 +208,8 @@ namespace CaptureEncoder
                             byte* dataInBytes;
                             uint capacityInBytes;
                             // Get the buffer from the AudioFrame
-                            ((IMemoryBufferByteAccess)reference).GetBuffer(out dataInBytes, out capacityInBytes);
+                            var byteAccess = reference.As<IMemoryBufferByteAccess>();
+                            byteAccess.GetBuffer(out dataInBytes, out capacityInBytes);
                             byte[] bytes = new byte[capacityInBytes];
                             Marshal.Copy((IntPtr)dataInBytes, bytes, 0, (int)capacityInBytes);
                             var data_buffer = WindowsRuntimeBufferExtensions.AsBuffer(bytes, 0, (int)capacityInBytes);

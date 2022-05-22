@@ -6,6 +6,8 @@ using System.Runtime.InteropServices;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.DirectX.Direct3D11;
 
+using WinRT;
+
 namespace CaptureEncoder
 {
     [ComImport]
@@ -55,22 +57,15 @@ namespace CaptureEncoder
             var d3dDevice = new SharpDX.Direct3D11.Device(
                 useWARP ? SharpDX.Direct3D.DriverType.Software : SharpDX.Direct3D.DriverType.Hardware,
                 SharpDX.Direct3D11.DeviceCreationFlags.BgraSupport);
-            IDirect3DDevice device = null;
 
-            // Acquire the DXGI interface for the Direct3D device.
-            using (var dxgiDevice = d3dDevice.QueryInterface<SharpDX.DXGI.Device3>())
-            {
-                // Wrap the native device using a WinRT interop object.
-                uint hr = CreateDirect3D11DeviceFromDXGIDevice(dxgiDevice.NativePointer, out IntPtr pUnknown);
+            return CreateDirect3DDeviceFromSharpDXDevice(d3dDevice);
+        }
 
-                if (hr == 0)
-                {
-                    device = Marshal.GetObjectForIUnknown(pUnknown) as IDirect3DDevice;
-                    Marshal.Release(pUnknown);
-                }
-            }
+        private static IDirect3DDevice CreateDirect3DDeviceFromSharpDXDevice(SharpDX.Direct3D11.Device sharpDxDevice) {
+            if (CreateDirect3D11DeviceFromDXGIDevice(sharpDxDevice.NativePointer, out var graphicsDevice) != 0)
+                return null;
 
-            return device;
+            return WinRT.MarshalInterface<IDirect3DDevice>.FromAbi(graphicsDevice);
         }
 
         internal static IDirect3DSurface CreateDirect3DSurfaceFromSharpDXTexture(SharpDX.Direct3D11.Texture2D texture)
@@ -85,17 +80,17 @@ namespace CaptureEncoder
 
                 if (hr == 0)
                 {
-                    surface = Marshal.GetObjectForIUnknown(pUnknown) as IDirect3DSurface;
-                    Marshal.Release(pUnknown);
+                    return WinRT.MarshalInterface<IDirect3DSurface>.FromAbi(pUnknown);
+                    //Marshal.Release(pUnknown);
                 }
-            }
 
-            return surface;
+                throw new InvalidCastException("Failed to create Direct3D surface from Texture2D.");
+            }
         }
 
         internal static SharpDX.Direct3D11.Device CreateSharpDXDevice(IDirect3DDevice device)
         {
-            var access = (IDirect3DDxgiInterfaceAccess)device;
+            var access = device.As<IDirect3DDxgiInterfaceAccess>();
             var d3dPointer = access.GetInterface(ID3D11Device);
             var d3dDevice = new SharpDX.Direct3D11.Device(d3dPointer);
             return d3dDevice;
@@ -103,7 +98,7 @@ namespace CaptureEncoder
 
         internal static SharpDX.Direct3D11.Texture2D CreateSharpDXTexture2D(IDirect3DSurface surface)
         {
-            var access = (IDirect3DDxgiInterfaceAccess)surface;
+            var access = surface.As<IDirect3DDxgiInterfaceAccess>();
             var d3dPointer = access.GetInterface(ID3D11Texture2D);
             var d3dSurface = new SharpDX.Direct3D11.Texture2D(d3dPointer);
             return d3dSurface;

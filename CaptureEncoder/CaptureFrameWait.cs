@@ -10,6 +10,8 @@ using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.DirectX.Direct3D11;
 
+using WinRT;
+
 namespace CaptureEncoder
 {
     public sealed class SurfaceWithInfo : IDisposable
@@ -19,8 +21,9 @@ namespace CaptureEncoder
 
         public void Dispose()
         {
-            Surface?.Dispose();
-            Surface = null;
+            if (this.Surface is null) return;
+            this.Surface.Dispose();
+            this.Surface = null!;
         }
     }
 
@@ -70,6 +73,7 @@ namespace CaptureEncoder
                 1,
                 size);
             _framePool.FrameArrived += OnFrameArrived;
+            _synchronizationContext = SynchronizationContext.Current;
             _session = _framePool.CreateCaptureSession(_item);
             _session.StartCapture();
         }
@@ -125,7 +129,14 @@ namespace CaptureEncoder
         private void Cleanup()
         {
             _framePool?.Dispose();
-            _session?.Dispose();
+            if (_session is not null) {
+                if (_synchronizationContext is not null) {
+                    _synchronizationContext.Send(_ => _session.Dispose(), null);
+                } else {
+                    _session.Dispose();
+                }
+                _session = null;
+            }
             if (_item != null)
             {
                 _item.Closed -= OnClosed;
@@ -196,6 +207,7 @@ namespace CaptureEncoder
 
         private GraphicsCaptureItem _item;
         private GraphicsCaptureSession _session;
+        private SynchronizationContext? _synchronizationContext;
         private Direct3D11CaptureFramePool _framePool;
     }
 }
