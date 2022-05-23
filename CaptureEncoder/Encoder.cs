@@ -166,7 +166,7 @@ namespace CaptureEncoder
             _transcoder.HardwareAccelerationEnabled = true;
         }
 
-       
+
         unsafe private void OnMediaStreamSourceSampleRequested(MediaStreamSource sender, MediaStreamSourceSampleRequestedEventArgs args)
         {
             if (_isRecording && !_closed)
@@ -194,10 +194,8 @@ namespace CaptureEncoder
                     {
                         var request = args.Request;
 
-                        var deferal = request.GetDeferral();
-
-                        var frame = _frameOutputNode.GetFrame();
-                        if (frame.Duration.GetValueOrDefault().TotalSeconds==0)
+                        using var frame = GetNonEmptyFrame();
+                        if (frame is null)
                         {
                             args.Request.Sample = null;
                             return;
@@ -222,11 +220,7 @@ namespace CaptureEncoder
                             sample.KeyFrame = true;
 
                             request.Sample = sample;
-                            
                         }
-
-                        deferal.Complete();
-
                     }
 
                 }
@@ -246,6 +240,16 @@ namespace CaptureEncoder
             }
         }
 
+        AudioFrame? GetNonEmptyFrame(int maxTries = 48000) {
+            for (int @try = 0; @try < maxTries; @try++) {
+                var frame = _frameOutputNode.GetFrame();
+                if (frame.Duration.GetValueOrDefault().Ticks != 0) {
+                    return frame;
+                }
+                frame.Dispose();
+            }
+            return null;
+        }
 
         
         private void OnMediaStreamSourceStarting(MediaStreamSource sender, MediaStreamSourceStartingEventArgs args)
