@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
 using System;
@@ -74,45 +74,47 @@ namespace CaptureEncoder
             return EncodeInternalAsync(destination, width, height, bitrateInBps, frameRate).AsAsyncAction();
         }
 
+        public SystemRelativeTime Start => new() { Value = this.timeOffset };
+
         private async Task EncodeInternalAsync(IRandomAccessStream destination, uint width, uint height, uint bitrateInBps, uint frameRate)
         {
-            if (!_isRecording)
+            if (_isRecording)
+                throw new InvalidOperationException();
+
+            _isRecording = true;
+
+            _frameGenerator = new CaptureFrameWait(
+                _device,
+                _captureItem,
+                _captureItem.Size);
+
+            using (_frameGenerator)
             {
-                _isRecording = true;
+                var encodingProfile = MediaEncodingProfile.CreateHevc(VideoEncodingQuality.Uhd2160p);
+                encodingProfile.Video.Width = width;
+                encodingProfile.Video.Height = height;
+                encodingProfile.Video.Bitrate = bitrateInBps;
+                encodingProfile.Video.FrameRate.Numerator = frameRate;
+                encodingProfile.Video.FrameRate.Denominator = 1;
+                encodingProfile.Video.PixelAspectRatio.Numerator = 1;
+                encodingProfile.Video.PixelAspectRatio.Denominator = 1;
+                // Describe audio input
+                encodingProfile.Audio = MediaEncodingProfile.CreateMp3(AudioEncodingQuality.Low).Audio;
 
-                _frameGenerator = new CaptureFrameWait(
-                    _device,
-                    _captureItem,
-                    _captureItem.Size);
 
-                using (_frameGenerator)
+                // create audio graph
+                if (_audioGraph==null)
                 {
-                    var encodingProfile = MediaEncodingProfile.CreateHevc(VideoEncodingQuality.Uhd2160p);
-                    encodingProfile.Video.Width = width;
-                    encodingProfile.Video.Height = height;
-                    encodingProfile.Video.Bitrate = bitrateInBps;
-                    encodingProfile.Video.FrameRate.Numerator = frameRate;
-                    encodingProfile.Video.FrameRate.Denominator = 1;
-                    encodingProfile.Video.PixelAspectRatio.Numerator = 1;
-                    encodingProfile.Video.PixelAspectRatio.Denominator = 1;
-                    // Describe audio input
-                    encodingProfile.Audio = MediaEncodingProfile.CreateMp3(AudioEncodingQuality.Low).Audio;
-
-
-                    // create audio graph
-                    if (_audioGraph==null)
-                    {
-                        await CreateAudioObjects();
-                    }
-
-                    // add audio support
-                    _audioDescriptor = new AudioStreamDescriptor(_audioGraph.EncodingProperties);
-                    _mediaStreamSource.AddStreamDescriptor(_audioDescriptor);
-
-
-                    var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, destination, encodingProfile);
-                    await transcode.TranscodeAsync();
+                    await CreateAudioObjects();
                 }
+
+                // add audio support
+                _audioDescriptor = new AudioStreamDescriptor(_audioGraph.EncodingProperties);
+                _mediaStreamSource.AddStreamDescriptor(_audioDescriptor);
+
+
+                var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, destination, encodingProfile);
+                await transcode.TranscodeAsync();
             }
         }
 
