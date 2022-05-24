@@ -75,7 +75,7 @@ namespace CaptureEncoder
             return EncodeInternalAsync(destination, width, height, bitrateInBps, frameRate).AsAsyncAction();
         }
 
-        public SystemRelativeTime Start => new() { Value = this.timeOffset };
+        public Task<SystemRelativeTime> Start => this.startReadinessTask.Task;
 
         private async Task EncodeInternalAsync(IRandomAccessStream destination, uint width, uint height, uint bitrateInBps, uint frameRate)
         {
@@ -264,6 +264,8 @@ namespace CaptureEncoder
             {
                 timeOffset = timeOffset + audioFrame.RelativeTime.GetValueOrDefault();
             }
+
+            this.startReadinessTask.SetResult(new() { Value = timeOffset });
         }
 
         private IDirect3DDevice _device;
@@ -284,6 +286,7 @@ namespace CaptureEncoder
         private AudioDeviceInputNode _deviceInputNode;
         private AudioFrameOutputNode _frameOutputNode;
         private TimeSpan timeOffset = new TimeSpan();
+        TaskCompletionSource<SystemRelativeTime> startReadinessTask = new();
 
     }
 }
