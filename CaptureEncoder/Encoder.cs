@@ -64,7 +64,7 @@ namespace CaptureEncoder
             // create output frame 
             _frameOutputNode = _audioGraph.CreateFrameOutputNode();
             // increase volume of input
-            _deviceInputNode.OutgoingGain = 10;
+            // _deviceInputNode.OutgoingGain = 10;
             _deviceInputNode.AddOutgoingConnection(_frameOutputNode);
 
         }
