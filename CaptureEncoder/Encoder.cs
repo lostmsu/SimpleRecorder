@@ -135,6 +135,8 @@ namespace CaptureEncoder
             _isRecording = false;            
         }
 
+        public bool IsClosed => _closed;
+
         private  void DisposeInternal()
         {
             _frameGenerator.Dispose();
