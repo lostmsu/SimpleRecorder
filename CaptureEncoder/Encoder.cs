@@ -8,6 +8,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Devices.Enumeration;
 using Windows.Foundation;
+using Windows.Graphics;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Media;
@@ -26,15 +27,15 @@ namespace CaptureEncoder
 {
     public sealed class Encoder : IDisposable
     {
-        public Encoder(IDirect3DDevice device, GraphicsCaptureItem item)
+        /// <param name="sourceSize">Workaround for https://github.com/MicrosoftDocs/SimpleRecorder/issues/6</param>
+        public Encoder(IDirect3DDevice device, GraphicsCaptureItem item, SizeInt32 sourceSize)
         {
             _device = device;
             _captureItem = item;
+            _sourceSize = sourceSize;
             _isRecording = false;
 
             CreateMediaObjects();
-
-
         }
 
         private async Task CreateAudioObjects()
@@ -86,7 +87,7 @@ namespace CaptureEncoder
             _frameGenerator = new CaptureFrameWait(
                 _device,
                 _captureItem,
-                _captureItem.Size);
+                _sourceSize);
 
             using (_frameGenerator)
             {
@@ -142,13 +143,8 @@ namespace CaptureEncoder
 
         private void CreateMediaObjects()
         {
-
-            // Create our encoding profile based on the size of the item
-            int width = _captureItem.Size.Width;
-            int height = _captureItem.Size.Height;
-
             // Describe our input: uncompressed BGRA8 buffers
-            var videoProperties = VideoEncodingProperties.CreateUncompressed(MediaEncodingSubtypes.Bgra8, (uint)width, (uint)height);
+            var videoProperties = VideoEncodingProperties.CreateUncompressed(MediaEncodingSubtypes.Bgra8, (uint)_sourceSize.Width, (uint)_sourceSize.Height);
             _videoDescriptor = new VideoStreamDescriptor(videoProperties);
 
             // Create our MediaStreamSource
@@ -273,6 +269,7 @@ namespace CaptureEncoder
         private IDirect3DDevice _device;
 
         private GraphicsCaptureItem _captureItem;
+        readonly SizeInt32 _sourceSize;
         private CaptureFrameWait _frameGenerator;
 
         private VideoStreamDescriptor _videoDescriptor;
