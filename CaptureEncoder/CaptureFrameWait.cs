@@ -149,7 +149,7 @@ namespace CaptureEncoder
             _currentFrame?.Dispose();
         }
 
-        public SurfaceWithInfo WaitForNewFrame()
+        public SurfaceWithInfo? WaitForNewFrame()
         {
             // Let's get a fresh one.
             _currentFrame?.Dispose();
