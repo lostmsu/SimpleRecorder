@@ -198,6 +198,7 @@ namespace CaptureEncoder
                         if (frame is null)
                         {
                             args.Request.Sample = null;
+                            DisposeInternal();
                             return;
                         }
                         using (AudioBuffer buffer = frame.LockBuffer(AudioBufferAccessMode.Write))
