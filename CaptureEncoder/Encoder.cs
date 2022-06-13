@@ -100,7 +100,8 @@ namespace CaptureEncoder
                 encodingProfile.Video.PixelAspectRatio.Numerator = 1;
                 encodingProfile.Video.PixelAspectRatio.Denominator = 1;
                 // Describe audio input
-                encodingProfile.Audio = MediaEncodingProfile.CreateMp3(AudioEncodingQuality.Low).Audio;
+                encodingProfile.Audio = MediaEncodingProfile.CreateM4a(AudioEncodingQuality.Low).Audio;
+                encodingProfile.Audio.SampleRate = 48000;
 
 
                 // create audio graph
