@@ -5,6 +5,13 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+		<AssemblyName>LostTech.WindowsCapture</AssemblyName>
+		<Version>0.0.1</Version>
+
+		<DebugSymbols>true</DebugSymbols>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
 
 	<ItemGroup>
