@@ -126,7 +126,6 @@ namespace CaptureEncoder
         private  void DisposeInternal()
         {
             _frameGenerator.Dispose();
-
         }
 
         private void CreateMediaObjects()
@@ -142,7 +141,7 @@ namespace CaptureEncoder
             _mediaStreamSource.Starting += OnMediaStreamSourceStarting;
             _mediaStreamSource.SampleRequested += OnMediaStreamSourceSampleRequested;
             _mediaStreamSource.Closed += (s,e) => {
-                Debug.WriteLine("Stop AudioGraph");
+                Debug.WriteLine($"Stop AudioGraph: {e?.Request?.Reason}");
                 _audioGraph?.Stop();
 
             };
