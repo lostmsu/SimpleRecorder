@@ -22,15 +22,23 @@ namespace CaptureEncoder
 {
     public sealed class Encoder : IDisposable
     {
+        static int nextID;
+        public string Name { get; }
         /// <param name="sourceSize">Workaround for https://github.com/MicrosoftDocs/SimpleRecorder/issues/6</param>
-        public Encoder(IDirect3DDevice device, GraphicsCaptureItem item, SizeInt32 sourceSize)
+        public Encoder(IDirect3DDevice device, GraphicsCaptureItem item, SizeInt32 sourceSize, string name)
         {
             _device = device;
             _captureItem = item;
             _sourceSize = sourceSize;
             _isRecording = false;
+            Name = name;
 
             CreateMediaObjects();
+        }
+
+        public Encoder(IDirect3DDevice device, GraphicsCaptureItem item, SizeInt32 sourceSize)
+            : this(device, item, sourceSize, $"Encoder {Interlocked.Increment(ref nextID)}")
+        {
         }
 
         private async Task CreateAudioObjects()
@@ -141,7 +149,7 @@ namespace CaptureEncoder
             _mediaStreamSource.Starting += OnMediaStreamSourceStarting;
             _mediaStreamSource.SampleRequested += OnMediaStreamSourceSampleRequested;
             _mediaStreamSource.Closed += (s,e) => {
-                Debug.WriteLine($"Stop AudioGraph: {e?.Request?.Reason}");
+                Debug.WriteLine($"{Name}: MediaStreamSource closed: {e?.Request?.Reason}");
                 _audioGraph?.Stop();
 
             };
