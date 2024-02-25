@@ -143,20 +143,24 @@ namespace CaptureEncoder
             _videoDescriptor = new VideoStreamDescriptor(videoProperties);
 
             // Create our MediaStreamSource
-            _mediaStreamSource = new MediaStreamSource(_videoDescriptor);
+            var videoSource = new MediaStreamSource(_videoDescriptor);
+            _mediaStreamSource = videoSource;
             _mediaStreamSource.CanSeek = true;
             _mediaStreamSource.BufferTime = TimeSpan.FromMilliseconds(0);
             _mediaStreamSource.Starting += OnMediaStreamSourceStarting;
             _mediaStreamSource.SampleRequested += OnMediaStreamSourceSampleRequested;
-            _mediaStreamSource.Closed += (s,e) => {
-                Debug.WriteLine($"{Name}: MediaStreamSource closed: {e?.Request?.Reason}");
-                _audioGraph?.Stop();
-
-            };
+            _mediaStreamSource.Closed += OnVideoClosed;
 
             // Create our transcoder
             _transcoder = new MediaTranscoder();
             _transcoder.HardwareAccelerationEnabled = true;
+
+            void OnVideoClosed(MediaStreamSource sender, MediaStreamSourceClosedEventArgs args) {
+                videoSource.Closed -= OnVideoClosed;
+                videoSource.SampleRequested -= OnMediaStreamSourceSampleRequested;
+                Debug.WriteLine($"{Name}: MediaStreamSource closed: {args?.Request?.Reason}");
+                _audioGraph?.Stop();
+            }
         }
 
 
@@ -173,6 +177,7 @@ namespace CaptureEncoder
                         
                         if (frame == null)
                         {
+                            Debug.WriteLine("null video frame");
                             args.Request.Sample = null;
                             this.DisposeInternal();
                             return;
@@ -189,6 +194,7 @@ namespace CaptureEncoder
                         using var frame = GetNonEmptyFrame();
                         if (frame is null)
                         {
+                            Debug.WriteLine("null audio frame");
                             args.Request.Sample = null;
                             DisposeInternal();
                             return;
@@ -228,6 +234,7 @@ namespace CaptureEncoder
             }
             else
             {
+                Debug.WriteLine($"Not recording: rec: {_isRecording} closed: {_closed}");
                 args.Request.Sample = null;
                 DisposeInternal();
             }
