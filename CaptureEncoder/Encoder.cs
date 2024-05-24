@@ -248,6 +248,7 @@ namespace CaptureEncoder
                 }
                 frame.Dispose();
             }
+            Debug.WriteLine("unable to get a non-empty audio frame");
             return null;
         }
 
