@@ -49,7 +49,7 @@ namespace CaptureEncoder
             var result = await AudioGraph.CreateAsync(settings);
             if (result.Status != AudioGraphCreationStatus.Success)
             {
-                Debug.WriteLine("AudioGraph creation error: " + result.Status.ToString());
+                Trace.WriteLine("AudioGraph creation error: " + result.Status.ToString());
                 return;
             }
             _audioGraph = result.Graph;
@@ -58,8 +58,9 @@ namespace CaptureEncoder
             var deviceInputResult = await _audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Other);
             if (deviceInputResult.Status != AudioDeviceNodeCreationStatus.Success)
             {
-                Debug.WriteLine($"Audio Device Input unavailable because {deviceInputResult.Status.ToString()}");
-
+                Trace.WriteLine($"Audio Device Input unavailable because {deviceInputResult.Status.ToString()}");
+                _audioGraph.Dispose();
+                _audioGraph = null;
                 return;
             }
             _deviceInputNode = deviceInputResult.DeviceInputNode;
@@ -104,8 +105,11 @@ namespace CaptureEncoder
                     }
 
                     // add audio support
-                    _audioDescriptor = new AudioStreamDescriptor(_audioGraph.EncodingProperties);
-                    _mediaStreamSource.AddStreamDescriptor(_audioDescriptor);
+                    if (_audioGraph is not null)
+                    {
+                        _audioDescriptor = new AudioStreamDescriptor(_audioGraph.EncodingProperties);
+                        _mediaStreamSource.AddStreamDescriptor(_audioDescriptor);
+                    }
                 }
 
                 var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, destination, encodingProfile);
@@ -146,6 +150,14 @@ namespace CaptureEncoder
             var videoSource = new MediaStreamSource(_videoDescriptor);
             _mediaStreamSource = videoSource;
             _mediaStreamSource.CanSeek = true;
+            _mediaStreamSource.Paused += (sender, e) =>
+            {
+                Trace.WriteLine($"Paused {sender}: {e}");
+            };
+            _mediaStreamSource.SwitchStreamsRequested += (sender, e) =>
+            {
+                Trace.WriteLine($"SwitchStreamsRequested {sender}: {e}");
+            };
             _mediaStreamSource.BufferTime = TimeSpan.FromMilliseconds(0);
             _mediaStreamSource.Starting += OnMediaStreamSourceStarting;
             _mediaStreamSource.SampleRequested += OnMediaStreamSourceSampleRequested;
@@ -158,11 +170,20 @@ namespace CaptureEncoder
             void OnVideoClosed(MediaStreamSource sender, MediaStreamSourceClosedEventArgs args) {
                 videoSource.Closed -= OnVideoClosed;
                 videoSource.SampleRequested -= OnMediaStreamSourceSampleRequested;
-                Debug.WriteLine($"{Name}: MediaStreamSource closed: {args?.Request?.Reason}");
+                Trace.WriteLine($"{Name}: MediaStreamSource closed: {args?.Request?.Reason}");
                 _audioGraph?.Stop();
             }
         }
 
+        private void _mediaStreamSource_Paused1(MediaStreamSource sender, object args)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void _mediaStreamSource_Paused(MediaStreamSource sender, object args)
+        {
+            throw new NotImplementedException();
+        }
 
         unsafe private void OnMediaStreamSourceSampleRequested(MediaStreamSource sender, MediaStreamSourceSampleRequestedEventArgs args)
         {
@@ -196,7 +217,8 @@ namespace CaptureEncoder
                         {
                             Debug.WriteLine("null audio frame");
                             args.Request.Sample = null;
-                            DisposeInternal();
+                            if (_audioGraph is not null)
+                                DisposeInternal();
                             return;
                         }
                         using (AudioBuffer buffer = frame.LockBuffer(AudioBufferAccessMode.Write))
@@ -241,6 +263,11 @@ namespace CaptureEncoder
         }
 
         AudioFrame? GetNonEmptyFrame(int maxTries = 48000) {
+            if (_frameOutputNode is null)
+            {
+                Trace.WriteLine("No audio frame output node");
+                return null;
+            }
             for (int @try = 0; @try < maxTries; @try++) {
                 var frame = _frameOutputNode.GetFrame();
                 if (frame.Duration.GetValueOrDefault().Ticks != 0) {
@@ -255,20 +282,32 @@ namespace CaptureEncoder
         
         private void OnMediaStreamSourceStarting(MediaStreamSource sender, MediaStreamSourceStartingEventArgs args)
         {
-            MediaStreamSourceStartingRequest request = args.Request;
-
-            using (var frame = _frameGenerator.WaitForNewFrame())
+            Trace.WriteLine("MediaStreamSourceStarting");
+            try
             {
-                timeOffset = frame.SystemRelativeTime;
-                //request.SetActualStartPosition(frame.SystemRelativeTime);
-            }
-            _audioGraph?.Start();
-            using (var audioFrame = _frameOutputNode.GetFrame())
-            {
-                timeOffset = timeOffset + audioFrame.RelativeTime.GetValueOrDefault();
-            }
+                MediaStreamSourceStartingRequest request = args.Request;
 
-            this.startReadinessTask.SetResult(new() { Value = timeOffset });
+                using (var frame = _frameGenerator.WaitForNewFrame())
+                {
+                    timeOffset = frame.SystemRelativeTime;
+                    //request.SetActualStartPosition(frame.SystemRelativeTime);
+                }
+                Trace.WriteLine("Got video frame");
+
+                _audioGraph?.Start();
+                if (_audioGraph is not null && _frameOutputNode is not null)
+                {
+                    using var audioFrame = _frameOutputNode.GetFrame();
+                    timeOffset = timeOffset + audioFrame.RelativeTime.GetValueOrDefault();
+                    Trace.WriteLine("Got audio frame");
+                }
+
+                this.startReadinessTask.SetResult(new() { Value = timeOffset });
+            }
+            catch (Exception e)
+            {
+                this.startReadinessTask.SetException(e);
+            }
         }
 
         private IDirect3DDevice _device;
@@ -285,9 +324,9 @@ namespace CaptureEncoder
         private bool _closed = false;
 
         // audio graph and nodes
-        private AudioGraph _audioGraph;
-        private AudioDeviceInputNode _deviceInputNode;
-        private AudioFrameOutputNode _frameOutputNode;
+        private AudioGraph? _audioGraph;
+        private AudioDeviceInputNode? _deviceInputNode;
+        private AudioFrameOutputNode? _frameOutputNode;
         private TimeSpan timeOffset = new TimeSpan();
         TaskCompletionSource<SystemRelativeTime> startReadinessTask = new();
 
