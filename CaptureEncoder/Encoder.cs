@@ -112,10 +112,25 @@ namespace CaptureEncoder
                     }
                 }
 
-                var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, destination, encodingProfile);
-                await transcode.TranscodeAsync();
+                try
+                {
+                    var transcode = await _transcoder.PrepareMediaStreamSourceTranscodeAsync(_mediaStreamSource, destination, encodingProfile);
+                    await transcode.TranscodeAsync();
+                }
+                catch (COMException e) when (e.ErrorCode == MF_E_TRANSCODE_NO_MATCHING_ENCODER)
+                {
+                    string hwOrSw = _transcoder.HardwareAccelerationEnabled ? "HW" : "SW";
+                    throw new NotSupportedException($"Unable to find encoder for {encodingProfile.Audio?.Subtype} or {hwOrSw} encoder for {encodingProfile.Video.Subtype}", e);
+                }
+                catch (COMException e) when (e.ErrorCode == MF_E_TRANSFORM_TYPE_NOT_SET)
+                {
+                    throw new InvalidOperationException("Transform type not set", e);
+                }
             }
         }
+
+        const int MF_E_TRANSCODE_NO_MATCHING_ENCODER = unchecked((int)0xC00DA412);
+        const int MF_E_TRANSFORM_TYPE_NOT_SET = unchecked((int)0xC00D6D60);
 
         public void Dispose()
         {
