@@ -26,7 +26,7 @@ public static class ComExceptionExtensions
         {
             case MediaFoundationError.MF_E_TRANSCODE_NO_MATCHING_ENCODER:
                 string hwOrSw = transcoder?.HardwareAccelerationEnabled == true ? "HW" : "SW";
-                return new NotSupportedException($"Unable to find encoder for {encodingProfile?.Audio?.Subtype} or {hwOrSw} encoder for {encodingProfile.Video.Subtype}", error);
+                return new NotSupportedException($"Unable to find encoder for {encodingProfile?.Audio?.Subtype} or {hwOrSw} encoder for {encodingProfile?.Video?.Subtype}", error);
             case MediaFoundationError.MF_E_TRANSFORM_TYPE_NOT_SET:
                 return new InvalidOperationException("Transform type not set", error);
             default:
