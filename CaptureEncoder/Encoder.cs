@@ -36,6 +36,8 @@ namespace CaptureEncoder
             CreateMediaObjects();
         }
 
+        public event Action<object>? Stopped;
+
         public Encoder(IDirect3DDevice device, GraphicsCaptureItem item, SizeInt32 sourceSize)
             : this(device, item, sourceSize, $"Encoder {Interlocked.Increment(ref nextID)}")
         {
@@ -139,7 +141,7 @@ namespace CaptureEncoder
                 DisposeInternal();
             }
 
-            _isRecording = false;            
+            _isRecording = false;
         }
 
         public bool IsClosed => _closed;
@@ -181,6 +183,7 @@ namespace CaptureEncoder
                 videoSource.SampleRequested -= OnMediaStreamSourceSampleRequested;
                 Trace.WriteLine($"{Name}: MediaStreamSource closed: {args?.Request?.Reason}");
                 _audioGraph?.Stop();
+                Stopped?.Invoke(args!);
             }
         }
 
